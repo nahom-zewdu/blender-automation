@@ -1,37 +1,44 @@
 # blender/step2_animation.py
 
 import bpy
+from mathutils import Vector
 
-# Clear scene
-bpy.ops.object.select_all(action='SELECT')
-bpy.ops.object.delete()
+# Reset scene
+bpy.ops.wm.read_factory_settings(use_empty=True)
 
-# Cube
+# Create cube
 bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
 cube = bpy.context.object
 
-# Animate rotation
-cube.rotation_mode = 'XYZ'
+# Create camera
+bpy.ops.object.camera_add(location=(6, -6, 4))
+camera = bpy.context.object
+camera.rotation_euler = (1.1, 0, 0.8)
+bpy.context.scene.camera = camera
+
+# Create light
+bpy.ops.object.light_add(type='AREA', location=(4, -4, 6))
+light = bpy.context.object
+light.data.energy = 1000
+
+# Timeline
+scene = bpy.context.scene
+scene.frame_start = 1
+scene.frame_end = 150
+scene.render.fps = 30
+
+# Animate cube rotation
 cube.rotation_euler = (0, 0, 0)
 cube.keyframe_insert(data_path="rotation_euler", frame=1)
 
-cube.rotation_euler = (0, 0, 3.14)
-cube.keyframe_insert(data_path="rotation_euler", frame=120)
-
-# Camera
-bpy.ops.object.camera_add(location=(6, -6, 4))
-bpy.context.scene.camera = bpy.context.object
-
-# Light
-bpy.ops.object.light_add(type='POINT', location=(4, -4, 6))
+cube.rotation_euler = (0, 0, 6.28)
+cube.keyframe_insert(data_path="rotation_euler", frame=150)
 
 # Render settings
-scene = bpy.context.scene
 scene.render.engine = 'BLENDER_EEVEE'
-scene.frame_start = 1
-scene.frame_end = 120
-scene.render.filepath = '/tmp/step2.mp4'
+scene.render.filepath = "/tmp/test.mp4"
 scene.render.image_settings.file_format = 'FFMPEG'
 scene.render.ffmpeg.format = 'MPEG4'
 
+# Render
 bpy.ops.render.render(animation=True)
