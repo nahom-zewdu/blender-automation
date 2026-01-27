@@ -10,7 +10,7 @@ bpy.ops.object.delete()
 bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
 cube = bpy.context.object
 
-# Material (IMPORTANT)
+# Material
 mat = bpy.data.materials.new(name="CubeMaterial")
 mat.use_nodes = True
 bsdf = mat.node_tree.nodes["Principled BSDF"]
