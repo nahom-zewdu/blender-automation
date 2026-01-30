@@ -1,0 +1,43 @@
+log
+> 1
+- Tried generating walk animation logic directly via LLM-generated Blender Python script.
+- Result: Failed.
+- Issues:
+
+  - Script assumed object names / armature structure that didn’t exist.
+  - Keyframes were written to wrong data blocks.
+  - Camera + scene context errors.
+- Conclusion: LLM-generated animation-from-scratch is unreliable without tight constraints.
+
+> 2
+
+- Pivot decision: Stop asking LLM to invent animation logic.
+- New approach: Use existing walk animation template + programmatically modify transforms (location, timing, camera).
+
+> 3
+
+- Imported parking lot GLTF.
+- Fixed scale and alignment manually in viewport.
+- Verified character, car, and environment scale consistency.
+
+> 4
+
+- Goal refined:
+
+  - Character starts a short distance away.
+  - Walks toward the car.
+  - Side-view camera framing entire action.
+
+> 5
+
+- Used Blender viewport playback instead of rendering to iterate faster.
+- Confirmed animation timing and positioning visually.
+
+> 6
+
+- Wrote minimal Python script to:
+
+  - Move character root object toward target position (near car).
+  - Adjust animation start/end frames.
+  - Avoid operators that require UI context.
+
