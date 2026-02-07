@@ -1,0 +1,8 @@
+1. Scale:
+    Different assets come in:
+        different unit systems (cm, m, inches, arbitrary)
+        different authoring scales
+        sometimes already scaled inside file
+        sometimes nested under scaled parents
+    
+    Solution: Normalize every asset using real-world size references stored in the asset manifest.
