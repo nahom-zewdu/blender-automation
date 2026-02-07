@@ -1,5 +1,8 @@
+# mvp/mpv_test.py
+"""
+test script to import 3 assets, normalize their scale, and animate them moving across the scene."""
+
 import bpy
-import math
 from mathutils import Vector
 
 # RESET SCENE
@@ -97,9 +100,9 @@ def animate_move(obj, start, end, frame_start, frame_end):
 
 
 # IMPORT YOUR ASSETS (EDIT PATHS)
-kid_objs = import_asset("/home/nahom/Downloads/blender/assets/kid.glb")
-ball_objs = import_asset("/home/nahom/Downloads/blender/assets/ball.glb")
-court_objs = import_asset("/home/nahom/Downloads/blender/assets/court.glb")
+kid_objs = import_asset("assets/kid.glb")
+ball_objs = import_asset("assets/ball.glb")
+court_objs = import_asset("assets/court.glb")
 
 kid = wrap_asset("ASSET_KID", kid_objs)
 ball = wrap_asset("ASSET_BALL", ball_objs)
@@ -111,16 +114,15 @@ apply_transforms(ball)
 apply_transforms(court)
 
 # NORMALIZE SCALE
-normalize_height(kid, 1.2)     # kid ≈ 1.2m
-normalize_height(ball, 0.24)   # basketball ≈ 24cm
-normalize_height(court, 10.0)  # arbitrary ground scale
+normalize_height(kid, 1.2)
+normalize_height(ball, 0.24)
+normalize_height(court, 10.0)
 
 # DEBUG HEIGHT OUTPUT (CHECK CONSOLE)
 debug_height("Kid", kid)
 debug_height("Ball", ball)
 debug_height("Court", court)
 
-# FIX ROTATION IF MODEL IMPORTED SIDEWAYS
 # (Uncomment if kid lies down or rotated wrong)
 # kid.rotation_euler[0] = math.radians(90)
 
