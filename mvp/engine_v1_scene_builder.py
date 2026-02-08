@@ -5,7 +5,7 @@ import bpy
 import json
 import os
 from mathutils import Vector
-# CONFIG
+
 ASSETS_ROOT = "assets"
 MANIFEST_PATH = os.path.join(ASSETS_ROOT, "manifests", "scene_auto.scene.json")
 
@@ -15,17 +15,15 @@ ASSET_FILES = {
     "court_1": "court.glb"
 }
 
-# Target real-world sizes (meters)
 TARGET_SIZES = {
-    "kid_1": 1.2,     # height
-    "ball_1": 0.24,   # diameter
-    "court_1": 15.0   # width
+    "kid_1": 1.2,
+    "ball_1": 0.24,
+    "court_1": 15.0
 }
 
-# RESET SCENE
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
-# IMPORT
+
 def import_asset(filepath):
     before = set(bpy.data.objects)
 
@@ -51,7 +49,7 @@ def wrap_asset(asset_id, objects):
 
     return root
 
-# BOUNDING BOX
+
 def get_combined_bbox(obj):
     meshes = [o for o in obj.children_recursive if o.type == 'MESH']
     if not meshes:
@@ -68,7 +66,7 @@ def get_combined_bbox(obj):
 
     return min_v, max_v
 
-# NORMALIZE SCALE
+
 def normalize_asset(root, asset_id):
     bpy.context.view_layer.update()
 
@@ -97,34 +95,52 @@ def normalize_asset(root, asset_id):
     bpy.context.view_layer.update()
     print(f"Normalized {asset_id} scale → factor {scale_factor:.3f}")
 
-# LOAD SCENE MANIFEST
+
+def apply_attachment(child_obj, parent_obj, offset):
+    constraint = child_obj.constraints.new(type='CHILD_OF')
+    constraint.target = parent_obj
+
+    child_obj.location = Vector(offset)
+
+    bpy.context.view_layer.update()
+    bpy.ops.object.select_all(action='DESELECT')
+    child_obj.select_set(True)
+    bpy.context.view_layer.objects.active = child_obj
+    bpy.ops.object.visual_transform_apply()
+
+
 with open(MANIFEST_PATH) as f:
     scene_manifest = json.load(f)
 
-# IMPORT ALL ASSETS
 ASSETS = {}
 
 for asset_id, asset_data in scene_manifest["assets"].items():
-
     filepath = os.path.join(ASSETS_ROOT, ASSET_FILES[asset_id])
     print("Importing:", filepath)
 
     objs = import_asset(filepath)
     root = wrap_asset(asset_id, objs)
 
-    # Normalize BEFORE placement
     normalize_asset(root, asset_id)
 
-    # Apply placement
     root.location = Vector(asset_data["location"])
 
     ASSETS[asset_id] = root
 
-# SET FRAME RANGE
+
+for attach in scene_manifest.get("attachments", []):
+    child = ASSETS[attach["child"]]
+    parent = ASSETS[attach["parent"]]
+    offset = attach.get("offset", [0, 0, 0])
+
+    print(f"Attaching {attach['child']} → {attach['parent']}")
+    apply_attachment(child, parent, offset)
+
+
 bpy.context.scene.frame_start = scene_manifest["frame_start"]
 bpy.context.scene.frame_end = scene_manifest["frame_end"]
 
-# APPLY ANIMATIONS
+
 def animate_linear_move(obj, start, end, f1, f2):
     obj.location = Vector(start)
     obj.keyframe_insert(data_path="location", frame=f1)
@@ -134,7 +150,6 @@ def animate_linear_move(obj, start, end, f1, f2):
 
 
 for anim in scene_manifest.get("animations", []):
-
     obj = ASSETS[anim["asset_id"]]
 
     if anim["type"] == "linear_move":
