@@ -6,7 +6,7 @@ import os
 from math import ceil
 
 # CONFIG
-ASSETS_ROOT = "assets"
+ASSETS_ROOT = "/home/nahom/Downloads/blender/assets"
 MANIFEST_DIR = os.path.join(ASSETS_ROOT, "manifests")
 SCENE_OUTPUT = os.path.join(MANIFEST_DIR, "scene_auto.scene.json")
 
@@ -71,7 +71,8 @@ def build_scene(scene_spec):
         "frame_start": DEFAULT_FRAMES[0],
         "frame_end": DEFAULT_FRAMES[1],
         "assets": assets_out,
-        "animations": animations_out
+        "animations": animations_out,
+        "attachments": scene_spec.get("attachments", [])
     }
 
     return scene_manifest
@@ -101,7 +102,15 @@ SCENE_SPEC = {
             "end": [3, 0, 0],
             "frames": [1, 120]
         }
-    ]
+    ],
+    "attachments": [
+        {
+            "child": "ball_1",
+            "parent": "kid_1",
+            "offset": [0.3, 0, 1]
+        }
+]
+
 }
 
 if __name__ == "__main__":
