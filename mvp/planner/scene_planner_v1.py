@@ -125,7 +125,7 @@ def build_scene_manifest(request):
 
 
 REQUEST = {
-    "scene_type": "carry_object",
+    "scene_type": "move_actor",   # "static_scene", "move_actor", or "carry_object"
     "actor": "kid",
     "object": "ball",
     "environment": "court"
