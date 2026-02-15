@@ -6,7 +6,7 @@ import os
 import bpy
 from mathutils import Vector
 
-# ---------------- Headless Safety ----------------
+# ---------------- Environment ----------------
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["DISPLAY"] = ":0"
 
@@ -14,26 +14,26 @@ OUTPUT_DIR = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ---------------- Parse Args ----------------
-# blender -b -P scene_builder.py -- path1,path2 output.png|mp4
 args = sys.argv
 sep = args.index("--")
 
 asset_paths = args[sep + 1].split(",")
 output_file = args[sep + 2]
-output_path = os.path.join(OUTPUT_DIR, output_file)
+output_ext = output_file.lower().split(".")[-1]
+output_base = os.path.join(OUTPUT_DIR, output_file.rsplit(".", 1)[0])
 
 # ---------------- Validate Assets ----------------
 for p in asset_paths:
     if not os.path.exists(p):
-        raise Exception(f"Asset missing: {p}")
+        raise Exception(f"Missing asset: {p}")
     if os.path.getsize(p) < 1000:
-        raise Exception(f"Asset corrupted: {p}")
+        raise Exception(f"Corrupt asset: {p}")
 
 # ---------------- Reset Scene ----------------
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
 
-# ---------------- Import GLB ----------------
+# ---------------- Import Assets ----------------
 for path in asset_paths:
     print("Importing:", path)
     bpy.ops.import_scene.gltf(filepath=path)
@@ -59,18 +59,19 @@ for obj in meshes:
 center = (min_corner + max_corner) / 2
 size = (max_corner - min_corner).length
 
-# ---------------- Normalize Scene ----------------
+# ---------------- Normalize + Center ----------------
 for obj in meshes:
     obj.location -= center
 
 scale_factor = 1.0
-if size < 1.0:
-    scale_factor = 2.0 / size
-elif size > 10.0:
-    scale_factor = 8.0 / size
+if size < 1:
+    scale_factor = 2 / size
+elif size > 10:
+    scale_factor = 8 / size
 
 for obj in meshes:
     obj.scale *= scale_factor
+    obj.location.z = 0
 
 # ---------------- Camera ----------------
 cam_data = bpy.data.cameras.new("Camera")
@@ -78,79 +79,93 @@ cam_obj = bpy.data.objects.new("Camera", cam_data)
 bpy.context.collection.objects.link(cam_obj)
 scene.camera = cam_obj
 
-distance = max(size * scale_factor * 2.5, 5.0)
-cam_obj.location = (distance, -distance, distance)
+distance = max(size * scale_factor * 2.5, 5)
+cam_obj.location = (distance, -distance, distance * 1.4)
 direction = Vector((0, 0, 0)) - cam_obj.location
 cam_obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 # ---------------- Lighting ----------------
 sun_data = bpy.data.lights.new("Sun", type="SUN")
-sun_data.energy = max(size * 20.0, 50)
+sun_data.energy = 3
 sun = bpy.data.objects.new("Sun", sun_data)
 bpy.context.collection.objects.link(sun)
 sun.location = (distance, distance, distance)
 
-for i, pos in enumerate([
+fill_positions = [
     (-distance, -distance, distance),
     (distance, -distance, distance),
     (-distance, distance, distance),
-]):
+]
+
+for i, pos in enumerate(fill_positions):
     light = bpy.data.lights.new(f"Fill{i}", type="POINT")
-    light.energy = max(size * 100.0, 300)
+    light.energy = 200
     obj = bpy.data.objects.new(f"Fill{i}", light)
     bpy.context.collection.objects.link(obj)
     obj.location = pos
 
-# ---------------- World ----------------
+# ---------------- World (Prevent White Screen) ----------------
 world = bpy.data.worlds.new("World") if not bpy.data.worlds else bpy.data.worlds[0]
 scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes.get("Background")
-if bg:
-    bg.inputs[1].default_value = max(size, 2.5)
 
-# ---------------- Render Engine (GPU) ----------------
+bg.inputs[0].default_value = (0.05, 0.05, 0.05, 1)  # dark gray
+bg.inputs[1].default_value = 1.0  # strength
+
+# ---------------- Render Engine ----------------
 scene.render.engine = "CYCLES"
-
-prefs = bpy.context.preferences
-cycles = prefs.addons["cycles"].preferences
-cycles.compute_device_type = "CUDA"
-cycles.get_devices()
-for d in cycles.devices:
-    d.use = True
-
-scene.cycles.device = "GPU"
-scene.cycles.samples = 128
+scene.cycles.samples = 64
 scene.cycles.use_adaptive_sampling = True
+
+# -------- GPU Try --------
+try:
+    prefs = bpy.context.preferences
+    cycles = prefs.addons["cycles"].preferences
+    cycles.compute_device_type = "CUDA"
+    cycles.get_devices()
+    for d in cycles.devices:
+        d.use = True
+    scene.cycles.device = "GPU"
+    print("Using GPU")
+except:
+    scene.cycles.device = "CPU"
+    print("GPU failed → using CPU")
 
 # ---------------- Resolution ----------------
 scene.render.resolution_x = 1280
 scene.render.resolution_y = 720
 scene.render.resolution_percentage = 100
 
-# ---------------- Output Type ----------------
-ext = output_file.lower().split(".")[-1]
-
-scene.render.filepath = output_path
-
-if ext == "png":
+# ---------------- Output ----------------
+if output_ext == "png":
+    scene.render.filepath = output_base + ".png"
     scene.render.image_settings.file_format = "PNG"
     bpy.ops.render.render(write_still=True)
-    print("Image render done:", output_file)
+    print("PNG render complete")
 
-elif ext == "mp4":
+elif output_ext == "mp4":
     scene.frame_start = 1
-    scene.frame_end = 10
+    scene.frame_end = 60
 
+    scene.render.filepath = output_base  # NO .mp4 here
     scene.render.image_settings.file_format = "FFMPEG"
     scene.render.ffmpeg.format = "MPEG4"
     scene.render.ffmpeg.codec = "H264"
-    scene.render.ffmpeg.constant_rate_factor = "HIGH"
+    scene.render.ffmpeg.constant_rate_factor = "MEDIUM"
     scene.render.ffmpeg.ffmpeg_preset = "GOOD"
     scene.render.ffmpeg.audio_codec = "NONE"
 
     bpy.ops.render.render(animation=True)
-    print("Video render done:", output_file)
+    print("MP4 render complete")
 
 else:
-    raise Exception("Unsupported output format (use png or mp4)")
+    raise Exception("Unsupported output format (png or mp4)")
+
+# ---------------- Validate Output ----------------
+final_path = output_base + (".png" if output_ext == "png" else ".mp4")
+
+if not os.path.exists(final_path) or os.path.getsize(final_path) < 5000:
+    raise Exception("Render failed or empty output")
+
+print("FINAL OUTPUT:", final_path)
