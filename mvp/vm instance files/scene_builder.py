@@ -137,27 +137,32 @@ scene.render.resolution_x = 1280
 scene.render.resolution_y = 720
 scene.render.resolution_percentage = 100
 
-# ---------------- Output ----------------
+# ---------------- Validate Output ----------------
+import glob
+import time
+
+time.sleep(1)  # give filesystem a moment to finalize file
+
 if output_ext == "png":
-    scene.render.filepath = output_base + ".png"
-    scene.render.image_settings.file_format = "PNG"
-    bpy.ops.render.render(write_still=True)
-    print("PNG render complete")
+    expected = output_base + ".png"
+    if not os.path.exists(expected) or os.path.getsize(expected) < 2000:
+        raise Exception("PNG render failed or empty")
+    print("FINAL OUTPUT:", expected)
 
 elif output_ext == "mp4":
-    scene.frame_start = 1
-    scene.frame_end = 60
+    # Blender sometimes alters filename → search safely
+    pattern = output_base + "*.mp4"
+    matches = glob.glob(pattern)
 
-    scene.render.filepath = output_base  # NO .mp4 here
-    scene.render.image_settings.file_format = "FFMPEG"
-    scene.render.ffmpeg.format = "MPEG4"
-    scene.render.ffmpeg.codec = "H264"
-    scene.render.ffmpeg.constant_rate_factor = "MEDIUM"
-    scene.render.ffmpeg.ffmpeg_preset = "GOOD"
-    scene.render.ffmpeg.audio_codec = "NONE"
+    if not matches:
+        raise Exception("MP4 not generated")
 
-    bpy.ops.render.render(animation=True)
-    print("MP4 render complete")
+    final_video = max(matches, key=os.path.getsize)
+
+    if os.path.getsize(final_video) < 5000:
+        raise Exception("MP4 too small / empty")
+
+    print("FINAL OUTPUT:", final_video)
 
 else:
     raise Exception("Unsupported output format (png or mp4)")
