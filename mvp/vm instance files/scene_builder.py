@@ -151,7 +151,7 @@ elif output_ext == "mp4":
     scene.frame_start = 1
     scene.frame_end = 60  # 2 seconds @30fps
 
-    scene.render.filepath = output_base
+    scene.render.filepath = output_base + ".mp4"
     scene.render.image_settings.file_format = "FFMPEG"
     scene.render.ffmpeg.format = "MPEG4"
     scene.render.ffmpeg.codec = "H264"
