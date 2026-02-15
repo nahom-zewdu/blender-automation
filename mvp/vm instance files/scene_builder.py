@@ -3,6 +3,8 @@
 
 import sys
 import os
+import glob
+import time
 import bpy
 from mathutils import Vector
 
@@ -59,7 +61,7 @@ for obj in meshes:
 center = (min_corner + max_corner) / 2
 size = (max_corner - min_corner).length
 
-# ---------------- Normalize + Center ----------------
+# ---------------- Normalize ----------------
 for obj in meshes:
     obj.location -= center
 
@@ -86,39 +88,36 @@ cam_obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 # ---------------- Lighting ----------------
 sun_data = bpy.data.lights.new("Sun", type="SUN")
-sun_data.energy = 3
+sun_data.energy = 4
 sun = bpy.data.objects.new("Sun", sun_data)
 bpy.context.collection.objects.link(sun)
 sun.location = (distance, distance, distance)
 
-fill_positions = [
+for i, pos in enumerate([
     (-distance, -distance, distance),
     (distance, -distance, distance),
     (-distance, distance, distance),
-]
-
-for i, pos in enumerate(fill_positions):
+]):
     light = bpy.data.lights.new(f"Fill{i}", type="POINT")
-    light.energy = 200
+    light.energy = 250
     obj = bpy.data.objects.new(f"Fill{i}", light)
     bpy.context.collection.objects.link(obj)
     obj.location = pos
 
-# ---------------- World (Prevent White Screen) ----------------
+# ---------------- World ----------------
 world = bpy.data.worlds.new("World") if not bpy.data.worlds else bpy.data.worlds[0]
 scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes.get("Background")
-
-bg.inputs[0].default_value = (0.05, 0.05, 0.05, 1)  # dark gray
-bg.inputs[1].default_value = 1.0  # strength
+bg.inputs[0].default_value = (0.05, 0.05, 0.05, 1)
+bg.inputs[1].default_value = 1.0
 
 # ---------------- Render Engine ----------------
 scene.render.engine = "CYCLES"
 scene.cycles.samples = 64
 scene.cycles.use_adaptive_sampling = True
 
-# -------- GPU Try --------
+# ---- GPU try ----
 try:
     prefs = bpy.context.preferences
     cycles = prefs.addons["cycles"].preferences
@@ -130,47 +129,56 @@ try:
     print("Using GPU")
 except:
     scene.cycles.device = "CPU"
-    print("GPU failed → using CPU")
+    print("GPU unavailable → using CPU")
 
 # ---------------- Resolution ----------------
 scene.render.resolution_x = 1280
 scene.render.resolution_y = 720
 scene.render.resolution_percentage = 100
 
-# ---------------- Validate Output ----------------
-import glob
-import time
-
-time.sleep(1)  # give filesystem a moment to finalize file
+# ==================== RENDER ====================
 
 if output_ext == "png":
-    expected = output_base + ".png"
-    if not os.path.exists(expected) or os.path.getsize(expected) < 2000:
-        raise Exception("PNG render failed or empty")
-    print("FINAL OUTPUT:", expected)
+
+    scene.render.filepath = output_base + ".png"
+    scene.render.image_settings.file_format = "PNG"
+
+    print("Rendering PNG...")
+    bpy.ops.render.render(write_still=True)
 
 elif output_ext == "mp4":
-    # Blender sometimes alters filename → search safely
-    pattern = output_base + "*.mp4"
-    matches = glob.glob(pattern)
 
-    if not matches:
-        raise Exception("MP4 not generated")
+    scene.frame_start = 1
+    scene.frame_end = 60  # 2 seconds @30fps
 
-    final_video = max(matches, key=os.path.getsize)
+    scene.render.filepath = output_base
+    scene.render.image_settings.file_format = "FFMPEG"
+    scene.render.ffmpeg.format = "MPEG4"
+    scene.render.ffmpeg.codec = "H264"
+    scene.render.ffmpeg.constant_rate_factor = "HIGH"
+    scene.render.ffmpeg.ffmpeg_preset = "GOOD"
+    scene.render.ffmpeg.audio_codec = "NONE"
+    scene.render.fps = 30
 
-    if os.path.getsize(final_video) < 5000:
-        raise Exception("MP4 too small / empty")
-
-    print("FINAL OUTPUT:", final_video)
+    print("Rendering MP4...")
+    bpy.ops.render.render(animation=True)
 
 else:
     raise Exception("Unsupported output format (png or mp4)")
 
-# ---------------- Validate Output ----------------
-final_path = output_base + (".png" if output_ext == "png" else ".mp4")
+# ==================== VALIDATE ====================
 
-if not os.path.exists(final_path) or os.path.getsize(final_path) < 5000:
+time.sleep(1)
+
+if output_ext == "png":
+    final = output_base + ".png"
+else:
+    matches = glob.glob(output_base + "*.mp4")
+    if not matches:
+        raise Exception("MP4 not generated")
+    final = max(matches, key=os.path.getsize)
+
+if not os.path.exists(final) or os.path.getsize(final) < 5000:
     raise Exception("Render failed or empty output")
 
-print("FINAL OUTPUT:", final_path)
+print("FINAL OUTPUT:", final)
