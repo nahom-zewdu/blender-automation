@@ -173,7 +173,7 @@ time.sleep(1)
 if output_ext == "png":
     final = output_base + ".png"
 else:
-    matches = glob.glob(output_base + "*.mp4")
+    matches = glob.glob(output_base + ".mp4")
     if not matches:
         raise Exception("MP4 not generated")
     final = max(matches, key=os.path.getsize)
